@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多策略价值平均定投计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Helvetica Neue', 'Arial', 'sans-serif';
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        #plan-selector {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">多策略价值平均定投计算器</h1>
+            <p class="mt-2 text-md text-gray-600">管理多个定投计划，数据自动本地保存，实现“上涨少投，下跌多投”。</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold mb-6 border-b pb-4 text-gray-800">1. 管理我的定投计划</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                <div>
+                    <label for="plan-selector" class="block text-sm font-medium text-gray-700 mb-1">当前计划</label>
+                    <select id="plan-selector" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"></select>
+                </div>
+                <div class="flex space-x-3 items-end">
+                    <div class="flex-grow">
+                        <label for="new-plan-name" class="block text-sm font-medium text-gray-700 mb-1">新建计划名称</label>
+                        <input type="text" id="new-plan-name" placeholder="例如：我的沪深300基金" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+                    <button id="add-plan-btn" class="bg-indigo-600 text-white font-semibold py-3 px-5 rounded-lg hover:bg-indigo-700 transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">创建</button>
+                    <button id="delete-plan-btn" class="bg-red-600 text-white font-semibold py-3 px-5 rounded-lg hover:bg-red-700 transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">删除当前</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold mb-6 border-b pb-4 text-gray-800">2. 设置当前计划参数</h2>
+            <div id="settings" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                    <label for="first-period-target-value" class="block text-sm font-medium text-gray-700 mb-1">第一期目标市值 (元)</label>
+                    <input type="number" id="first-period-target-value" value="8000" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label for="target-increment" class="block text-sm font-medium text-gray-700 mb-1">每期目标市值增额 (元)</label>
+                    <input type="number" id="target-increment" value="2000" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label for="max-investment" class="block text-sm font-medium text-gray-700 mb-1">单期最高扣款 (元)</label>
+                    <input type="number" id="max-investment" value="5000" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label for="min-investment" class="block text-sm font-medium text-gray-700 mb-1">单期最低扣款 (元)</label>
+                    <input type="number" id="min-investment" value="100" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold mb-4 border-b pb-4 text-gray-800">3. 添加新一期定投记录</h2>
+             <div id="add-period-form" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <div class="md:col-span-1">
+                    <label for="period-date" class="block text-sm font-medium text-gray-700 mb-1">当期日期</label>
+                    <input type="date" id="period-date" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div class="md:col-span-1">
+                    <label for="current-nav" class="block text-sm font-medium text-gray-700 mb-1">当期基金/股票净值</label>
+                    <input type="number" id="current-nav" placeholder="例如: 1.0" step="0.001" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div class="md:col-span-1">
+                     <label for="base-shares" class="block text-sm font-medium text-gray-700 mb-1">底仓份额 (累计持有份额)</label>
+                     <input type="number" id="base-shares" placeholder="例如: 8000.0000" step="any" value="0" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                 </div>
+                 <div class="md:col-span-1">
+                     <label for="base-cost" class="block text-sm font-medium text-gray-700 mb-1">底仓成本 (累计投入本金)</label>
+                     <input type="number" id="base-cost" placeholder="例如: 6360.00" step="any" value="0" class="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                 </div>
+                 <div class="md:col-span-4 flex items-end justify-end space-x-3">
+                    <button id="add-period-btn" class="w-full md:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">添加记录</button>
+                    <button id="reset-btn" class="w-full md:w-auto bg-yellow-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-yellow-600 transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400">重置当前计划</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-lg">
+            <h2 id="plan-details-title" class="text-2xl font-semibold mb-4 text-gray-800">计划详情</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">期数</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">日期</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">当期净值</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">目标市值</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">当前市值</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">买入/卖出份额</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">实际扣款/回款</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">累计投入</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">累计份额</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plan-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+                   <p id="empty-state" class="text-center py-10 text-gray-500">请先创建或选择一个计划，然后添加定投记录。</p>
+            </div>
+        </div>
+        
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>这是一个模拟计算器，实际交易结果可能因交易费用、确认时间等因素而异。</p>
+        </footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- DOM Elements ---
+        const planSelector = document.getElementById('plan-selector');
+        const newPlanNameEl = document.getElementById('new-plan-name');
+        const addPlanBtn = document.getElementById('add-plan-btn');
+        const deletePlanBtn = document.getElementById('delete-plan-btn');
+        const firstPeriodTargetValueEl = document.getElementById('first-period-target-value'); // 新增：第一期目标市值
+        const targetIncrementEl = document.getElementById('target-increment');
+        const maxInvestmentEl = document.getElementById('max-investment');
+        const minInvestmentEl = document.getElementById('min-investment');
+        const periodDateEl = document.getElementById('period-date');
+        const currentNavEl = document.getElementById('current-nav');
+        const baseSharesEl = document.getElementById('base-shares');
+        const baseCostEl = document.getElementById('base-cost'); // 期初底仓成本
+
+        const addPeriodBtn = document.getElementById('add-period-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const tableBody = document.getElementById('plan-table-body');
+        const emptyState = document.getElementById('empty-state');
+        const planDetailsTitle = document.getElementById('plan-details-title');
+
+        // --- Application State ---
+        let allPlans = {};
+        let currentPlanName = '';
+
+        // --- Data Persistence Functions ---
+        function saveToLocalStorage() {
+            localStorage.setItem('valueAveragingPlans', JSON.stringify(allPlans));
+            localStorage.setItem('currentPlanName', currentPlanName);
+        }
+
+        function loadFromLocalStorage() {
+            const savedPlans = localStorage.getItem('valueAveragingPlans');
+            if (savedPlans) {
+                allPlans = JSON.parse(savedPlans);
+            }
+            currentPlanName = localStorage.getItem('currentPlanName') || '';
+            
+            if (!allPlans[currentPlanName]) {
+                currentPlanName = Object.keys(allPlans)[0] || '';
+            }
+        }
+
+        // --- UI Update Functions ---
+        function updatePlanSelector() {
+            planSelector.innerHTML = '';
+            const planNames = Object.keys(allPlans);
+            if (planNames.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = '暂无计划，请先创建';
+                planSelector.appendChild(option);
+                planSelector.disabled = true;
+            } else {
+                planSelector.disabled = false;
+                planNames.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    planSelector.appendChild(option);
+                });
+                planSelector.value = currentPlanName;
+            }
+        }
+        
+        function updateUIForCurrentPlan() {
+            if (!currentPlanName || !allPlans[currentPlanName]) {
+                planDetailsTitle.textContent = '计划详情';
+                firstPeriodTargetValueEl.value = '';
+                targetIncrementEl.value = '';
+                maxInvestmentEl.value = '';
+                minInvestmentEl.value = '';
+                periodDateEl.value = '';
+                currentNavEl.value = '';
+                baseSharesEl.value = '0';
+                baseCostEl.value = '0';
+                renderTable();
+                return;
+            }
+            
+            planDetailsTitle.textContent = `“${currentPlanName}” 计划详情`;
+            const plan = allPlans[currentPlanName];
+            firstPeriodTargetValueEl.value = plan.settings.firstPeriodTargetValue; 
+            targetIncrementEl.value = plan.settings.targetIncrement;
+            maxInvestmentEl.value = plan.settings.maxInvestment;
+            minInvestmentEl.value = plan.settings.minInvestment;
+
+            const lastPeriod = plan.data.length > 0 ? plan.data[plan.data.length - 1] : null;
+            if (lastPeriod) {
+                baseSharesEl.value = formatNumber(lastPeriod.cumulativeShares, 4);
+                baseCostEl.value = formatNumber(lastPeriod.cumulativeInvestment, 2);
+            } else {
+                baseSharesEl.value = '0';
+                baseCostEl.value = '0';
+            }
+
+            renderTable();
+        }
+
+        function renderTable() {
+            tableBody.innerHTML = '';
+            if (!currentPlanName || !allPlans[currentPlanName] || allPlans[currentPlanName].data.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+            
+            const planData = allPlans[currentPlanName].data;
+            planData.forEach(period => {
+                const row = document.createElement('tr');
+                const investmentAmountText = period.actualInvestment >= 0 
+                    ? `<span class="text-red-600 font-medium">${formatCurrency(period.actualInvestment)}</span>`
+                    : `<span class="text-green-600 font-medium">${formatCurrency(period.actualInvestment)}</span>`;
+                const sharesText = period.sharesToTransact >= 0
+                    ? `<span class="text-red-600 font-medium">+${formatNumber(period.sharesToTransact, 4)}</span>`
+                    : `<span class="text-green-600 font-medium">${formatNumber(period.sharesToTransact, 4)}</span>`;
+
+                row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-800">${period.periodNumber}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${period.date}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${formatNumber(period.nav, 4)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${formatCurrency(period.targetValue)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${formatCurrency(period.currentValue)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm">${sharesText}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm">${investmentAmountText}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${formatCurrency(period.cumulativeInvestment)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">${formatNumber(period.cumulativeShares, 4)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // --- Core Logic Functions ---
+        function createNewPlan() {
+            const name = newPlanNameEl.value.trim();
+            if (!name) {
+                alert('请输入新计划的名称！');
+                return;
+            }
+            if (allPlans[name]) {
+                alert('该名称的计划已存在！');
+                return;
+            }
+            allPlans[name] = {
+                settings: {
+                    firstPeriodTargetValue: 8000, // Default to 8000 as per user's latest input
+                    targetIncrement: 2000, 
+                    maxInvestment: 5000,
+                    minInvestment: 100,
+                },
+                data: []
+            };
+            currentPlanName = name;
+            newPlanNameEl.value = '';
+            
+            updatePlanSelector();
+            updateUIForCurrentPlan();
+            saveToLocalStorage();
+        }
+
+        function deleteCurrentPlan() {
+            if (!currentPlanName) {
+                alert('没有可删除的计划。');
+                return;
+            }
+            if (confirm(`您确定要永久删除 “${currentPlanName}” 这个计划吗？此操作无法撤销。`)) {
+                delete allPlans[currentPlanName];
+                currentPlanName = Object.keys(allPlans)[0] || ''; 
+                updatePlanSelector();
+                updateUIForCurrentPlan();
+                saveToLocalStorage();
+            }
+        }
+
+        function switchPlan(event) {
+            currentPlanName = event.target.value;
+            updateUIForCurrentPlan();
+            saveToLocalStorage();
+        }
+
+        function addPeriod() {
+            if (!currentPlanName) {
+                alert('请先创建或选择一个定投计划！');
+                return;
+            }
+            const currentPlan = allPlans[currentPlanName];
+            const planData = currentPlan.data;
+            
+            const { firstPeriodTargetValue, targetIncrement, maxInvestment, minInvestment } = currentPlan.settings;
+            const currentNav = parseFloat(currentNavEl.value);
+            const periodDate = periodDateEl.value;
+            let baseShares = parseFloat(baseSharesEl.value); 
+            let baseCost = parseFloat(baseCostEl.value);     // This is the cumulative investment from previous period
+
+            if (!periodDate || isNaN(currentNav) || currentNav <= 0 || isNaN(baseShares) || isNaN(baseCost) || baseShares < 0 || baseCost < 0) {
+                alert('请输入有效的日期、基金净值、底仓份额和底仓成本！');
+                return;
+            }
+            
+            const newPeriod = {
+                periodNumber: planData.length + 1,
+                nav: currentNav,
+                date: periodDate
+            };
+            
+            let actualInvestment = 0;
+            let sharesToTransact = 0;
+            let targetValue = 0;       
+            let currentValue = baseShares * newPeriod.nav; // Current market value based on existing shares
+
+            // Calculate target value based on the new rule: firstPeriodTargetValue + (N - 1) * targetIncrement
+            newPeriod.targetValue = firstPeriodTargetValue + (newPeriod.periodNumber - 1) * targetIncrement;
+            
+            // Calculate investment needed: Target Value - Current Market Value
+            let investmentNeeded = newPeriod.targetValue - currentValue;
+
+            // Apply max/min investment constraints
+            if (investmentNeeded > 0) { // Needs to buy
+                actualInvestment = Math.min(maxInvestment, Math.max(minInvestment, investmentNeeded));
+            } else if (investmentNeeded < 0) { // Needs to sell
+                if (Math.abs(investmentNeeded) < minInvestment && minInvestment > 0) { // If selling amount is too small, do nothing
+                    actualInvestment = 0; 
+                } else {
+                    actualInvestment = Math.max(-maxInvestment, investmentNeeded); // Ensure selling amount is within max limits (as negative)
+                }
+            } else {
+                actualInvestment = 0; // Perfectly balanced
+            }
+            
+            sharesToTransact = (newPeriod.nav > 0) ? actualInvestment / newPeriod.nav : 0;
+
+            newPeriod.cumulativeShares = baseShares + sharesToTransact;
+            newPeriod.cumulativeInvestment = baseCost + actualInvestment;
+            
+            newPeriod.actualInvestment = actualInvestment;
+            newPeriod.sharesToTransact = sharesToTransact;
+            newPeriod.currentValue = currentValue; 
+
+            currentPlan.data.push(newPeriod);
+            renderTable();
+            saveToLocalStorage();
+            
+            // Update default values for next input
+            baseSharesEl.value = formatNumber(newPeriod.cumulativeShares, 4);
+            baseCostEl.value = formatNumber(newPeriod.cumulativeInvestment, 2);
+            currentNavEl.value = '';
+            periodDateEl.valueAsDate = new Date(); // Set date to today
+            currentNavEl.focus(); // Focus on NAV input
+        }
+        
+        function resetCurrentPlan() {
+            if (!currentPlanName) {
+                alert('没有可重置的计划。');
+                return;
+            }
+            if (confirm(`您确定要清空 “${currentPlanName}” 的所有定投记录吗？参数设置将保留。`)) {
+                allPlans[currentPlanName].data = [];
+                baseSharesEl.value = '0'; 
+                baseCostEl.value = '0';   
+                renderTable();
+                saveToLocalStorage();
+            }
+        }
+        
+        function saveCurrentSettings() {
+            if (!currentPlanName) return;
+            allPlans[currentPlanName].settings = {
+                firstPeriodTargetValue: parseFloat(firstPeriodTargetValueEl.value), 
+                targetIncrement: parseFloat(targetIncrementEl.value),
+                maxInvestment: parseFloat(maxInvestmentEl.value),
+                minInvestment: parseFloat(minInvestmentEl.value)
+            };
+            saveToLocalStorage();
+        }
+        
+        // --- Helper functions ---
+        function formatCurrency(value) {
+            if (typeof value !== 'number' || isNaN(value)) return ''; 
+            return value.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
+        }
+        function formatNumber(value, decimalPlaces = 2) {
+            if (typeof value !== 'number' || isNaN(value)) return ''; 
+            return value.toFixed(decimalPlaces);
+        }
+
+        // --- Event Listeners ---
+        addPlanBtn.addEventListener('click', createNewPlan);
+        deletePlanBtn.addEventListener('click', deleteCurrentPlan);
+        planSelector.addEventListener('change', switchPlan);
+        addPeriodBtn.addEventListener('click', addPeriod);
+        resetBtn.addEventListener('click', resetCurrentPlan);
+        
+        // Initial save of defaults and event listeners for settings
+        saveCurrentSettings(); 
+        firstPeriodTargetValueEl.addEventListener('change', saveCurrentSettings); 
+        targetIncrementEl.addEventListener('change', saveCurrentSettings);
+        maxInvestmentEl.addEventListener('change', saveCurrentSettings);
+        minInvestmentEl.addEventListener('change', saveCurrentSettings);
+
+        // --- Initialization ---
+        function init() {
+            loadFromLocalStorage();
+            updatePlanSelector();
+            updateUIForCurrentPlan();
+            periodDateEl.valueAsDate = new Date(); 
+        }
+
+        init();
+    });
+    </script>
+</body>
+</html>
